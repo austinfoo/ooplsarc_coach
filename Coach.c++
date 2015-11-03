@@ -86,7 +86,7 @@ Teams coach_eval (const int num_students, const Pairs& pairs)
     }
   }
 
-  // Fill out remainder of team array with empty teams
+  // Fill out remainder of team vector with empty teams
   for (int i = teams.size(); i < max_num_teams; ++i) {
     teams.emplace_back();
   }
@@ -139,8 +139,8 @@ void coach_solve (std::istream& r, std::ostream& w)
     sin >> num_students >> num_pairs;
   }
 
-  // Get the taken rooms
-  Pairs pairs (num_pairs);
+  // Get the pairs of students who want to work together
+  Pairs pairs;
   for (int i = 0; i < num_pairs; ++i) {
     if (std::getline(r, s)) {
       std::istringstream sin(s);
@@ -151,7 +151,7 @@ void coach_solve (std::istream& r, std::ostream& w)
     }
   }
 
-  // Determine the number of pieces
+  // Determine the team assignments
   Teams teams = coach_eval(num_students, pairs);
 
   // Print the result

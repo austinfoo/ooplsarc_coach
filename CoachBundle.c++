@@ -1,6 +1,6 @@
 
-#ifndef LongPath_h
-#define LongPath_h
+#ifndef Coach_h
+#define Coach_h
 
 // --------
 // includes
@@ -9,24 +9,29 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <utility>
+
+using Pair = std::pair<int, int>;
+using Pairs = std::vector<Pair>;
+using Teams = std::vector<std::vector<int>>;
 
 // ------------
-// longpath_eval
+// coach_eval
 // ------------
 
-int longpath_eval (const int num_rooms, const std::vector<int>& taken_rooms);
+Teams coach_eval (const int num_students, const Pairs& pairs);
 
 // -------------
-// longpath_print
+// coach_print
 // -------------
 
-void longpath_print (std::ostream& w, int num_portals);
+void coach_print (std::ostream& w, const Teams& teams);
 
 // -------------
-// longpath_solve
+// coach_solve
 // -------------
 
-void longpath_solve (std::istream& r, std::ostream& w);
+void coach_solve (std::istream& r, std::ostream& w);
 
 #endif
 
@@ -54,101 +59,139 @@ void longpath_solve (std::istream& r, std::ostream& w);
 
 
 // ------------
-// longpath_eval
+// coach_eval
 // ------------
 
-
-// Observation
-// If we get to room I along the forward portal, then all rooms 1 to I-1 must
-// be even.  For example, to get from room 1 to room 4:
-//   To move from room 1 to room 2, room 1 must be even
-//   To move from room 2 to room 3, room 2 must be even
-//   To move from room 3 to room 4, room 3 must be even
-
-int longpath_eval (const int num_rooms, const std::vector<int>& taken_rooms)
+Teams coach_eval (const int num_students, const Pairs& pairs)
 {
-  // Each element in num_portals is the number of portals required to traverse
-  // from room I to room I+1 when all the rooms are initially even.
-  std::vector<uint64_t> num_portals (num_rooms+1);
+  Teams teams;
+  const int max_team_size = 3;
+  const int max_num_teams = num_students / max_team_size;
 
-  // Seed element 1 in num_portals with 2 since this must always be the case
-  // regardless of the configuration.
-  num_portals[1] = 2;
+  std::vector<int> sa (num_students + 1, -1);
 
-  // The magic modulus value specified in the problem description.
-  const uint64_t magic_mod_val = 1000000007;
+  for (const Pair& pair : pairs)
+  {
+    int s1 = pair.first;
+    int s2 = pair.second;
+    int s1_assignment = sa[s1];
+    int s2_assignment = sa[s2];
 
-  // Compute elements 2 to N in num_portals
-  for (int i = 2; i <= num_rooms; ++i) {
-    // Start at room I
-    int current_room = i;
-    uint64_t current_portals = 0;
-    // Since room I is initially even it takes one step to move backwards along
-    // the taken path to room J.  Note that room I is now odd.
-    current_room = taken_rooms[current_room];
-    ++current_portals;
-    // Since room J to I-1 are even, just add up the previously computed number
-    // of portals to move forward from J to I.  Note that when we finish this
-    // loop that the current room is now back to I.
-    while (current_room < i) {
-      current_portals += num_portals[current_room];
-      ++current_room;
+    // Neither assigned
+    if (s1_assignment == -1 && s2_assignment == -1) {
+      if (teams.size() == max_num_teams) {
+	teams.clear();
+	return teams;
+      } else {
+	teams.emplace_back();
+	teams.back().emplace_back(s1);
+	teams.back().emplace_back(s2);
+	sa[s1] = teams.size() - 1;
+	sa[s2] = teams.size() - 1;
+      }
     }
-    // We are in room I and it is odd.  It takes one forward step to move from
-    // I to I+1.
-    ++current_room;
-    ++current_portals;
-    // We are done.  Save the answer.
-    num_portals[i] = current_portals % magic_mod_val;
+
+    // Both already assigned
+    else if (s1_assignment != -1 && s2_assignment != -1) {
+      if (s1_assignment != s2_assignment) {
+	teams.clear();
+	return teams;
+      }
+    }
+
+    // s1 assigned and s2 not assigned
+    else if (s1_assignment != -1) {
+      if (teams[s1_assignment].size() == max_team_size) {
+	teams.clear();
+	return teams;
+      } else {
+	teams[s1_assignment].emplace_back(s2);
+	sa[s2] = s1_assignment;
+      }
+    }
+
+    // s2 assigned and s1 not assigned
+    else {
+      if (teams[s2_assignment].size() == max_team_size) {
+	teams.clear();
+	return teams;
+      } else {
+	teams[s2_assignment].emplace_back(s1);
+	sa[s1] = s2_assignment;
+      }
+    }
   }
 
-  // Now sum the full number of steps to get from room 1 to room N.
-  uint64_t total = 0;
-  for (int i = 1; i <= num_rooms; ++i) {
-    total += num_portals[i];
+  // Fill out remainder of team vector with empty teams
+  for (int i = teams.size(); i < max_num_teams; ++i) {
+    teams.emplace_back();
   }
-  total = total % magic_mod_val;
 
-  return total;
+  // Assign losers
+  for (int i = 1; i <= sa.size(); ++i) {
+    if (sa[i] == -1) {
+      for (int j = 0; j < teams.size(); ++j) {
+	if (teams[j].size() < max_team_size) {
+	  teams[j].emplace_back(i);
+	  sa[i] = j;
+	  break;
+	}
+      }
+    }
+  }
+
+  return teams;
 }
 
 // -------------
-// longpath_print
+// coach_print
 // -------------
 
-void longpath_print (std::ostream& w, int num_portals) {
-  w << num_portals << std::endl;
+void coach_print (std::ostream& w, const Teams& teams) {
+
+  if (teams.size() == 0) {
+    w << "-1" << std::endl;
+  } else {
+    for (const auto& team : teams) {
+      assert (team.size() == 3);
+      w << team[0] << " " << team[1] << " " << team[2] << std::endl;
+    }
+  }
 }
 
 // -------------
-// longpath_solve
+// coach_solve
 // -------------
 
-void longpath_solve (std::istream& r, std::ostream& w) 
+void coach_solve (std::istream& r, std::ostream& w) 
 {
   std::string s;
 
-  // Get the number of rooms
-  int num_rooms = 0;
+  // Get the number of students and number of pair requests
+  int num_students = 0;
+  int num_pairs = 0;
   if (std::getline(r, s)) {
     std::istringstream sin(s);
-    sin >> num_rooms;
+    sin >> num_students >> num_pairs;
   }
 
-  // Get the taken rooms
-  std::vector<int> taken_rooms (num_rooms+1);
-  if (std::getline(r, s)) {
-    std::istringstream sin(s);
-    for (int i = 1; i <= num_rooms; ++i) {
-      sin >> taken_rooms[i];
+  // Get the pairs of students who want to work together
+  Pairs pairs;
+  for (int i = 0; i < num_pairs; ++i) {
+    if (std::getline(r, s)) {
+      std::istringstream sin(s);
+      int s1 = 0;
+      int s2 = 0;
+      sin >> s1 >> s2;
+      pairs.emplace_back(s1, s2);
     }
   }
 
-  // Determine the number of pieces
-  int num_portals = longpath_eval(num_rooms, taken_rooms);
+  // Determine the team assignments
+  Teams teams = coach_eval(num_students, pairs);
 
   // Print the result
-  longpath_print(w, num_portals);
+  coach_print(w, teams);
 }
 
 #include <iostream>
@@ -161,6 +204,6 @@ void longpath_solve (std::istream& r, std::ostream& w)
 
 int main () {
     using namespace std;
-    longpath_solve(cin, cout);
+    coach_solve(cin, cout);
     return 0;
 }
